@@ -11,8 +11,8 @@ import java.net.URL;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.Set;
 
@@ -20,103 +20,138 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.MojoExecution;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.descriptor.PluginDescriptor;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.settings.Settings;
 
-@Mojo(name = "start", defaultPhase = LifecyclePhase.PROCESS_TEST_CLASSES, requiresOnline = false,
-                requiresProject = true, threadSafe = false)
+@Mojo(name = "start", defaultPhase = LifecyclePhase.PROCESS_TEST_CLASSES, requiresOnline = false, requiresProject = true, threadSafe = false)
 public class StartServerMojo extends AbstractMojo {
 
-    @Parameter(property = "port", required = true)
-    protected int port;
+	@Parameter(property = "port", required = true)
+	protected int port;
 
-    @Parameter(property = "serverClass", required = true)
-    protected String serverClass;
+	@Parameter(property = "serverClass", required = true)
+	protected String serverClass;
 
-    @Parameter(defaultValue = "${project}", readonly = true)
-    protected MavenProject project;
+	@Parameter(defaultValue = "${localRepository}", readonly = true, required = true)
+	private ArtifactRepository local;
 
-    @Parameter(defaultValue = "${localRepository}", readonly = true, required = true)
-    private ArtifactRepository local;
+	@Parameter(defaultValue = "${project}", readonly = true)
+	private MavenProject project;
 
-    public MavenProject getProject() {
-        return project;
-    }
+	@Parameter(defaultValue = "${mojoExecution}", readonly = true)
+	private MojoExecution mojo;
 
-    public void setProject(MavenProject project) {
-        this.project = project;
-    }
+	@Parameter(defaultValue = "${plugin}", readonly = true)
+	private PluginDescriptor plugin;
 
-    public int getPort() {
-        return port;
-    }
+	@Parameter(defaultValue = "${settings}", readonly = true)
+	private Settings settings;
 
-    public void setPort(int port) {
-        this.port = port;
-    }
+	@Parameter(defaultValue = "${project.basedir}", readonly = true)
+	private File basedir;
 
+	@Parameter(defaultValue = "${project.build.directory}", readonly = true)
+	private File target;
+	
+	
+	@Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true)
+	private File targetOutputDirectory;
+	
+	@Parameter(defaultValue = "${project.build.testOutputDirectory}", readonly = true)
+	private File targetTestOutputDirectory;
+	
+	
+	public MavenProject getProject() {
+		return project;
+	}
 
-    public String getServerClass() {
-        return serverClass;
-    }
+	public void setProject(MavenProject project) {
+		this.project = project;
+	}
 
-    public void setServerClass(String serverClass) {
-        this.serverClass = serverClass;
-    }
+	public int getPort() {
+		return port;
+	}
 
+	public void setPort(int port) {
+		this.port = port;
+	}
 
-    Thread t;
+	public String getServerClass() {
+		return serverClass;
+	}
 
-    @Override
-    public void execute() throws MojoExecutionException {
-        try {
+	public void setServerClass(String serverClass) {
+		this.serverClass = serverClass;
+	}
 
+	Thread t;
 
-            File java = new File(new File(System.getProperty("java.home"), "bin"), "java");
-            List<String> args = new ArrayList<String>();
-            args.add(java.getAbsolutePath());
-            args.add("-cp");
-            args.add(buildClasspath());
-            args.add(getServerClass());
+	@Override
+	public void execute() throws MojoExecutionException {
+		try {
+			File java = new File(new File(System.getProperty("java.home"), "bin"), "java");
+			List<String> args = new ArrayList<String>();
+			args.add(java.getAbsolutePath());
+			args.add("-cp");
+			args.add(buildClasspath());
+			args.add(getServerClass());
 
-            System.out.println("------------------");
-            System.out.println(args);
-            System.out.println("------------------");
+			System.out.println("------------------");
+			System.out.println(args);
+			System.out.println("------------------");
 
-            Process p = new ProcessBuilder(args).start();
-            dumpStream(p.getInputStream(), System.out);
-            dumpStream(p.getErrorStream(), System.err);
-            addShutdownHook(p);
-            waitOnStopCommand(p);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
+			Process p = new ProcessBuilder(args).start();
+			dumpStream(p.getInputStream(), System.out);
+			dumpStream(p.getErrorStream(), System.err);
+			addShutdownHook(p);
+			waitOnStopCommand(p);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
 
-    private String buildClasspath() throws DependencyResolutionRequiredException {
-        final String separator = System.getProperty("path.separator");
+	private String buildClasspath() throws DependencyResolutionRequiredException {
+		final String separator = System.getProperty("path.separator");
 
-        List<String> r1 = project.getRuntimeClasspathElements();
-        Set<Artifact> dependencies = project.getDependencyArtifacts();
-        List<String> paths = new ArrayList<>();
-        for (Artifact artifact : dependencies) {
-            // Find the artifact in the local repository.
-            Artifact art = local.find(artifact);
+		List<String> runtimeLocs = project.getRuntimeClasspathElements();
+		
+		runtimeLocs.add(targetOutputDirectory.getAbsolutePath());
 
-            paths.add(art.getFile().getAbsolutePath());
-        }
+		runtimeLocs.add(targetTestOutputDirectory.getAbsolutePath());
 
-        r1.addAll(paths);
+		List<String> paths = new ArrayList<>();
+		Set<Artifact> dependencies = project.getDependencyArtifacts();
+		for (Artifact artifact : dependencies) {
+			// Find the artifact in the local repository.
+			Artifact art = local.find(artifact);
+			if (art != null) {
+				paths.add(art.getFile().getAbsolutePath());
+			}
+		}
 
-        return String.join(separator, r1);
-    }
+		Map<String, Artifact> cdependencies = plugin.getArtifactMap();
+		for (Artifact artifact : cdependencies.values()) {
+			// Find the artifact in the local repository.
+			Artifact art = local.find(artifact);
+			if (art != null) {
+				paths.add(art.getFile().getAbsolutePath());
+			}
+		}
 
+		runtimeLocs.addAll(paths);
 
-    private final File getEmbeddedServerLocation() throws ClassNotFoundException {
-		final ProtectionDomain pd = Class.forName(getServerClass()).getProtectionDomain();
+		return String.join(separator, runtimeLocs);
+	}
+
+	private final File getDependencyLocation(Class claz) throws ClassNotFoundException {
+		final ProtectionDomain pd = claz.getProtectionDomain();
 		assert pd != null;
 		final CodeSource cs = pd.getCodeSource();
 		assert cs != null;
@@ -129,63 +164,51 @@ public class StartServerMojo extends AbstractMojo {
 		}
 	}
 
-    private String getRuntimeClasspath() throws DependencyResolutionRequiredException {
-        final String separator = System.getProperty("path.separator");
-        // get the union of compile- and runtime classpath elements
-        Set<String> dependencySet = new HashSet();
-        dependencySet.addAll(project.getRuntimeClasspathElements());
-        dependencySet.addAll(project.getSystemClasspathElements());
-        String compileClasspath = String.join(File.pathSeparator, dependencySet);
+	public void waitOnStopCommand(final Process p) throws IOException {
 
-        return compileClasspath;
+		// !!! cannot write lambdas in plugins it fails
+		// java.lang.ArrayIndexOutOfBoundsException: 5377
+		t = new Thread(new Runnable() {
 
-    }
+			public void run() {
+				try (final ServerSocket ssocket = new ServerSocket(getPort())) {
+					boolean flag = false;
+					while (!flag) {
+						Socket connectionSocket = ssocket.accept();
+						flag = true;
+					}
+					p.destroy();
+				} catch (IOException e) {
+				}
+			}
+		});
+		t.start();
+	}
 
-    public void waitOnStopCommand(final Process p) throws IOException {
+	private void addShutdownHook(final Process p) {
 
-        // !!! cannot write lambdas in plugins it fails
-        // java.lang.ArrayIndexOutOfBoundsException: 5377
-        t = new Thread(new Runnable() {
+		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+			public void run() {
+				try {
+					p.destroy();
+				} catch (Exception e) {
+				}
+			}
+		}));
 
-            public void run() {
-                try (final ServerSocket ssocket = new ServerSocket(getPort())) {
-                    boolean flag = false;
-                    while (!flag) {
-                        Socket connectionSocket = ssocket.accept();
-                        flag = true;
-                    }
-                    p.destroy();
-                } catch (IOException e) {
-                }
-            }
-        });
-        t.start();
-    }
+	}
 
-    private void addShutdownHook(final Process p){
+	private void dumpStream(final InputStream src, final PrintStream dest) {
+		new Thread(new Runnable() {
 
-        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-            public void run() {
-                try {
-                    p.destroy();
-                } catch (Exception e) {
-                }
-            }
-        }));
+			public void run() {
 
-    }
-    
-    private void dumpStream(final InputStream src, final PrintStream dest) {
-        new Thread(new Runnable() {
-
-            public void run() {
-
-                try (final Scanner sc = new Scanner(src)) {
-                    while (sc.hasNextLine()) {
-                        dest.println(sc.nextLine());
-                    }
-                }
-            }
-        }).start();
-    }
+				try (final Scanner sc = new Scanner(src)) {
+					while (sc.hasNextLine()) {
+						dest.println(sc.nextLine());
+					}
+				}
+			}
+		}).start();
+	}
 }
