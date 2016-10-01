@@ -6,9 +6,7 @@
 	<artifactId>xserver-maven-plugin</artifactId>
 	<version>1.0</version>
 	<packaging>maven-plugin</packaging>
-
 	<name>xserver-maven-plugin</name>
-
 	<url>http://maven.apache.org</url>
 
 	<properties>
@@ -23,7 +21,7 @@
 		<maven-plugin-plugin.version>3.2</maven-plugin-plugin.version>
 	</properties>
 
-	<dependencies>		
+	<dependencies>
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>

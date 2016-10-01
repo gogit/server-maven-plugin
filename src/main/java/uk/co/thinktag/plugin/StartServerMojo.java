@@ -29,186 +29,187 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.settings.Settings;
 
-@Mojo(name = "start", defaultPhase = LifecyclePhase.PROCESS_TEST_CLASSES, requiresOnline = false, requiresProject = true, threadSafe = false)
+@Mojo(name = "start", defaultPhase = LifecyclePhase.PROCESS_TEST_CLASSES, requiresOnline = false,
+                requiresProject = true, threadSafe = false)
 public class StartServerMojo extends AbstractMojo {
 
-	@Parameter(property = "port", required = true)
-	protected int port;
+    @Parameter(property = "port", required = true)
+    protected int port;
 
-	@Parameter(property = "serverClass", required = true)
-	protected String serverClass;
+    @Parameter(property = "serverClass", required = true)
+    protected String serverClass;
 
-	@Parameter(defaultValue = "${localRepository}", readonly = true, required = true)
-	private ArtifactRepository local;
+    @Parameter(defaultValue = "${localRepository}", readonly = true, required = true)
+    private ArtifactRepository local;
 
-	@Parameter(defaultValue = "${project}", readonly = true)
-	private MavenProject project;
+    @Parameter(defaultValue = "${project}", readonly = true)
+    private MavenProject project;
 
-	@Parameter(defaultValue = "${mojoExecution}", readonly = true)
-	private MojoExecution mojo;
+    @Parameter(defaultValue = "${mojoExecution}", readonly = true)
+    private MojoExecution mojo;
 
-	@Parameter(defaultValue = "${plugin}", readonly = true)
-	private PluginDescriptor plugin;
+    @Parameter(defaultValue = "${plugin}", readonly = true)
+    private PluginDescriptor plugin;
 
-	@Parameter(defaultValue = "${settings}", readonly = true)
-	private Settings settings;
+    @Parameter(defaultValue = "${settings}", readonly = true)
+    private Settings settings;
 
-	@Parameter(defaultValue = "${project.basedir}", readonly = true)
-	private File basedir;
+    @Parameter(defaultValue = "${project.basedir}", readonly = true)
+    private File basedir;
 
-	@Parameter(defaultValue = "${project.build.directory}", readonly = true)
-	private File target;
-	
-	
-	@Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true)
-	private File targetOutputDirectory;
-	
-	@Parameter(defaultValue = "${project.build.testOutputDirectory}", readonly = true)
-	private File targetTestOutputDirectory;
-	
-	
-	public MavenProject getProject() {
-		return project;
-	}
+    @Parameter(defaultValue = "${project.build.directory}", readonly = true)
+    private File target;
 
-	public void setProject(MavenProject project) {
-		this.project = project;
-	}
 
-	public int getPort() {
-		return port;
-	}
+    @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true)
+    private File targetOutputDirectory;
 
-	public void setPort(int port) {
-		this.port = port;
-	}
+    @Parameter(defaultValue = "${project.build.testOutputDirectory}", readonly = true)
+    private File targetTestOutputDirectory;
 
-	public String getServerClass() {
-		return serverClass;
-	}
 
-	public void setServerClass(String serverClass) {
-		this.serverClass = serverClass;
-	}
+    public MavenProject getProject() {
+        return project;
+    }
 
-	Thread t;
+    public void setProject(MavenProject project) {
+        this.project = project;
+    }
 
-	@Override
-	public void execute() throws MojoExecutionException {
-		try {
-			File java = new File(new File(System.getProperty("java.home"), "bin"), "java");
-			List<String> args = new ArrayList<String>();
-			args.add(java.getAbsolutePath());
-			args.add("-cp");
-			args.add(buildClasspath());
-			args.add(getServerClass());
+    public int getPort() {
+        return port;
+    }
 
-			System.out.println("------------------");
-			System.out.println(args);
-			System.out.println("------------------");
+    public void setPort(int port) {
+        this.port = port;
+    }
 
-			Process p = new ProcessBuilder(args).start();
-			dumpStream(p.getInputStream(), System.out);
-			dumpStream(p.getErrorStream(), System.err);
-			addShutdownHook(p);
-			waitOnStopCommand(p);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-	}
+    public String getServerClass() {
+        return serverClass;
+    }
 
-	private String buildClasspath() throws DependencyResolutionRequiredException {
-		final String separator = System.getProperty("path.separator");
+    public void setServerClass(String serverClass) {
+        this.serverClass = serverClass;
+    }
 
-		List<String> runtimeLocs = project.getRuntimeClasspathElements();
-		
-		runtimeLocs.add(targetOutputDirectory.getAbsolutePath());
+    Thread t;
 
-		runtimeLocs.add(targetTestOutputDirectory.getAbsolutePath());
+    @Override
+    public void execute() throws MojoExecutionException {
+        try {
+            File java = new File(new File(System.getProperty("java.home"), "bin"), "java");
+            List<String> args = new ArrayList<String>();
+            args.add(java.getAbsolutePath());
+            args.add("-cp");
+            args.add(buildClasspath());
+            args.add(getServerClass());
 
-		List<String> paths = new ArrayList<>();
-		Set<Artifact> dependencies = project.getDependencyArtifacts();
-		for (Artifact artifact : dependencies) {
-			// Find the artifact in the local repository.
-			Artifact art = local.find(artifact);
-			if (art != null) {
-				paths.add(art.getFile().getAbsolutePath());
-			}
-		}
+            System.out.println("------------------");
+            System.out.println(args);
+            System.out.println("------------------");
 
-		Map<String, Artifact> cdependencies = plugin.getArtifactMap();
-		for (Artifact artifact : cdependencies.values()) {
-			// Find the artifact in the local repository.
-			Artifact art = local.find(artifact);
-			if (art != null) {
-				paths.add(art.getFile().getAbsolutePath());
-			}
-		}
+            Process p = new ProcessBuilder(args).start();
+            dumpStream(p.getInputStream(), System.out);
+            dumpStream(p.getErrorStream(), System.err);
+            addShutdownHook(p);
+            waitOnStopCommand(p);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-		runtimeLocs.addAll(paths);
+    private String buildClasspath() throws DependencyResolutionRequiredException {
+        final String separator = System.getProperty("path.separator");
 
-		return String.join(separator, runtimeLocs);
-	}
+        List<String> runtimeLocs = project.getRuntimeClasspathElements();
 
-	private final File getDependencyLocation(Class claz) throws ClassNotFoundException {
-		final ProtectionDomain pd = claz.getProtectionDomain();
-		assert pd != null;
-		final CodeSource cs = pd.getCodeSource();
-		assert cs != null;
-		final URL location = cs.getLocation();
-		assert location != null;
-		try {
-			return new File(location.toURI());
-		} catch (final URISyntaxException wontHappen) {
-			throw (InternalError) new InternalError().initCause(wontHappen);
-		}
-	}
+        runtimeLocs.add(targetOutputDirectory.getAbsolutePath());
 
-	public void waitOnStopCommand(final Process p) throws IOException {
+        runtimeLocs.add(targetTestOutputDirectory.getAbsolutePath());
 
-		// !!! cannot write lambdas in plugins it fails
-		// java.lang.ArrayIndexOutOfBoundsException: 5377
-		t = new Thread(new Runnable() {
+        List<String> paths = new ArrayList<>();
+        /*
+         * causes conflicts
+         * 
+         *  Set<Artifact> dependencies = project.getDependencyArtifacts(); for
+         * (Artifact artifact : dependencies) { // Find the artifact in the local repository.
+         * Artifact art = local.find(artifact); if (art != null) {
+         * paths.add(art.getFile().getAbsolutePath()); } }
+         */
 
-			public void run() {
-				try (final ServerSocket ssocket = new ServerSocket(getPort())) {
-					boolean flag = false;
-					while (!flag) {
-						Socket connectionSocket = ssocket.accept();
-						flag = true;
-					}
-					p.destroy();
-				} catch (IOException e) {
-				}
-			}
-		});
-		t.start();
-	}
+        Map<String, Artifact> cdependencies = plugin.getArtifactMap();
+        for (Artifact artifact : cdependencies.values()) {
+            // Find the artifact in the local repository.
+            Artifact art = local.find(artifact);
+            if (art != null) {
+                paths.add(art.getFile().getAbsolutePath());
+            }
+        }
 
-	private void addShutdownHook(final Process p) {
+        runtimeLocs.addAll(paths);
 
-		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-			public void run() {
-				try {
-					p.destroy();
-				} catch (Exception e) {
-				}
-			}
-		}));
+        return String.join(separator, runtimeLocs);
+    }
 
-	}
+    private final File getDependencyLocation(Class claz) throws ClassNotFoundException {
+        final ProtectionDomain pd = claz.getProtectionDomain();
+        assert pd != null;
+        final CodeSource cs = pd.getCodeSource();
+        assert cs != null;
+        final URL location = cs.getLocation();
+        assert location != null;
+        try {
+            return new File(location.toURI());
+        } catch (final URISyntaxException wontHappen) {
+            throw (InternalError) new InternalError().initCause(wontHappen);
+        }
+    }
 
-	private void dumpStream(final InputStream src, final PrintStream dest) {
-		new Thread(new Runnable() {
+    public void waitOnStopCommand(final Process p) throws IOException {
 
-			public void run() {
+        // !!! cannot write lambdas in plugins it fails
+        // java.lang.ArrayIndexOutOfBoundsException: 5377
+        t = new Thread(new Runnable() {
 
-				try (final Scanner sc = new Scanner(src)) {
-					while (sc.hasNextLine()) {
-						dest.println(sc.nextLine());
-					}
-				}
-			}
-		}).start();
-	}
+            public void run() {
+                try (final ServerSocket ssocket = new ServerSocket(getPort())) {
+                    boolean flag = false;
+                    while (!flag) {
+                        Socket connectionSocket = ssocket.accept();
+                        flag = true;
+                    }
+                    p.destroy();
+                } catch (IOException e) {
+                }
+            }
+        });
+        t.start();
+    }
+
+    private void addShutdownHook(final Process p) {
+
+        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+            public void run() {
+                try {
+                    p.destroy();
+                } catch (Exception e) {
+                }
+            }
+        }));
+
+    }
+
+    private void dumpStream(final InputStream src, final PrintStream dest) {
+        new Thread(new Runnable() {
+
+            public void run() {
+
+                try (final Scanner sc = new Scanner(src)) {
+                    while (sc.hasNextLine()) {
+                        dest.println(sc.nextLine());
+                    }
+                }
+            }
+        }).start();
+    }
 }
