@@ -2,6 +2,8 @@
 A maven plugin that can be used to start and stop any server (like embedded artemis) within a maven test cycle.
 
 ##Example usage in pom.xml
+
+~~~~
 <code>
     <plugin>
 	<groupId>uk.co.thinktag.plugin</groupId>
@@ -28,7 +30,7 @@ A maven plugin that can be used to start and stop any server (like embedded arte
 	</executions>
     </plugin>
 </code>
-
+~~~~
 The plugin starts the server using the supplied serverClass during the process-test-classes phase and shuts it down during the verify phase.
 
 ##Running the plugin
