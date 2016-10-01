@@ -26,94 +26,96 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
-@Mojo(name = "start", defaultPhase = LifecyclePhase.PROCESS_TEST_CLASSES, requiresOnline = false, requiresProject = true, threadSafe = false)
+@Mojo(name = "start", defaultPhase = LifecyclePhase.PROCESS_TEST_CLASSES, requiresOnline = false,
+                requiresProject = true, threadSafe = false)
 public class StartServerMojo extends AbstractMojo {
 
-	@Parameter(property = "port", required = true)
-	protected int port;
-	
-	@Parameter(property = "serverClass", required = true)
-	protected String serverClass;
-	
-	@Parameter(defaultValue = "${project}", readonly = true)
-	protected MavenProject project;
+    @Parameter(property = "port", required = true)
+    protected int port;
 
-	@Parameter( defaultValue = "${localRepository}", readonly = true, required = true )
-	private ArtifactRepository local;
-	
-	public MavenProject getProject() {
-		return project;
-	}
+    @Parameter(property = "serverClass", required = true)
+    protected String serverClass;
 
-	public void setProject(MavenProject project) {
-		this.project = project;
-	}
+    @Parameter(defaultValue = "${project}", readonly = true)
+    protected MavenProject project;
 
-	public int getPort() {
-		return port;
-	}
+    @Parameter(defaultValue = "${localRepository}", readonly = true, required = true)
+    private ArtifactRepository local;
 
-	public void setPort(int port) {
-		this.port = port;
-	}
+    public MavenProject getProject() {
+        return project;
+    }
 
-	
-	public String getServerClass() {
-		return serverClass;
-	}
+    public void setProject(MavenProject project) {
+        this.project = project;
+    }
 
-	public void setServerClass(String serverClass) {
-		this.serverClass = serverClass;
-	}
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
 
 
-	Thread t;
+    public String getServerClass() {
+        return serverClass;
+    }
 
-	@Override
-	public void execute() throws MojoExecutionException {
-		try {
+    public void setServerClass(String serverClass) {
+        this.serverClass = serverClass;
+    }
 
-			
-			File java = new File(new File(System.getProperty("java.home"), "bin"), "java");
-			List<String> args = new ArrayList<String>();
-			args.add(java.getAbsolutePath());
-			args.add("-cp");
-			args.add(buildClasspath());
-			args.add(getServerClass());
 
-			System.out.println("------------------");
-			System.out.println(args);
-			System.out.println("------------------");
+    Thread t;
 
-			Process p = new ProcessBuilder(args).start();
-			dumpStream(p.getInputStream(), System.out);
-			dumpStream(p.getErrorStream(), System.err);
-			waitOnStopCommand(p);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-	}
+    @Override
+    public void execute() throws MojoExecutionException {
+        try {
 
-	private String buildClasspath() throws DependencyResolutionRequiredException{
-		final String separator = System.getProperty("path.separator");
-		
-		List<String> r1 = project.getRuntimeClasspathElements();
-		Set<Artifact> dependencies = project.getDependencyArtifacts();
-		List<String> paths = new ArrayList<>();
-		for (Artifact  artifact : dependencies) {
-			 // Find the artifact in the local repository.
-	        Artifact art = local.find( artifact );
-	        
-	        paths.add(art.getFile().getAbsolutePath());
-		}
-		
-		r1.addAll(paths);
-		
-		return String.join(separator, r1);
-	}
-	
 
-	private final File getEmbeddedServerLocation() throws ClassNotFoundException {
+            File java = new File(new File(System.getProperty("java.home"), "bin"), "java");
+            List<String> args = new ArrayList<String>();
+            args.add(java.getAbsolutePath());
+            args.add("-cp");
+            args.add(buildClasspath());
+            args.add(getServerClass());
+
+            System.out.println("------------------");
+            System.out.println(args);
+            System.out.println("------------------");
+
+            Process p = new ProcessBuilder(args).start();
+            dumpStream(p.getInputStream(), System.out);
+            dumpStream(p.getErrorStream(), System.err);
+            addShutdownHook(p);
+            waitOnStopCommand(p);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String buildClasspath() throws DependencyResolutionRequiredException {
+        final String separator = System.getProperty("path.separator");
+
+        List<String> r1 = project.getRuntimeClasspathElements();
+        Set<Artifact> dependencies = project.getDependencyArtifacts();
+        List<String> paths = new ArrayList<>();
+        for (Artifact artifact : dependencies) {
+            // Find the artifact in the local repository.
+            Artifact art = local.find(artifact);
+
+            paths.add(art.getFile().getAbsolutePath());
+        }
+
+        r1.addAll(paths);
+
+        return String.join(separator, r1);
+    }
+
+
+    private final File getEmbeddedServerLocation() throws ClassNotFoundException {
 		final ProtectionDomain pd = Class.forName(getServerClass()).getProtectionDomain();
 		assert pd != null;
 		final CodeSource cs = pd.getCodeSource();
@@ -127,50 +129,63 @@ public class StartServerMojo extends AbstractMojo {
 		}
 	}
 
-	private String getRuntimeClasspath() throws DependencyResolutionRequiredException {
-		final String separator = System.getProperty("path.separator");
-		// get the union of compile- and runtime classpath elements
-		Set<String> dependencySet = new HashSet();
-		dependencySet.addAll(project.getRuntimeClasspathElements());
-		dependencySet.addAll(project.getSystemClasspathElements());
-		String compileClasspath = String.join(File.pathSeparator, dependencySet);
+    private String getRuntimeClasspath() throws DependencyResolutionRequiredException {
+        final String separator = System.getProperty("path.separator");
+        // get the union of compile- and runtime classpath elements
+        Set<String> dependencySet = new HashSet();
+        dependencySet.addAll(project.getRuntimeClasspathElements());
+        dependencySet.addAll(project.getSystemClasspathElements());
+        String compileClasspath = String.join(File.pathSeparator, dependencySet);
 
-		return compileClasspath;
+        return compileClasspath;
 
-	}
+    }
 
-	public void waitOnStopCommand(final Process p) throws IOException {
+    public void waitOnStopCommand(final Process p) throws IOException {
 
-		// !!! cannot write lambdas in plugins it fails
-		// java.lang.ArrayIndexOutOfBoundsException: 5377
-		t = new Thread(new Runnable() {
+        // !!! cannot write lambdas in plugins it fails
+        // java.lang.ArrayIndexOutOfBoundsException: 5377
+        t = new Thread(new Runnable() {
 
-			public void run() {
-				try (final ServerSocket ssocket = new ServerSocket(getPort())) {
-					boolean flag = false;
-					while (!flag) {
-						Socket connectionSocket = ssocket.accept();
-						flag = true;
-					}
-					p.destroy();
-				} catch (IOException e) {
-				}
-			}
-		});
-		t.start();
-	}
+            public void run() {
+                try (final ServerSocket ssocket = new ServerSocket(getPort())) {
+                    boolean flag = false;
+                    while (!flag) {
+                        Socket connectionSocket = ssocket.accept();
+                        flag = true;
+                    }
+                    p.destroy();
+                } catch (IOException e) {
+                }
+            }
+        });
+        t.start();
+    }
 
-	private void dumpStream(final InputStream src, final PrintStream dest) {
-		new Thread(new Runnable() {
+    private void addShutdownHook(final Process p){
 
-			public void run() {
+        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+            public void run() {
+                try {
+                    p.destroy();
+                } catch (Exception e) {
+                }
+            }
+        }));
 
-				try (final Scanner sc = new Scanner(src)) {
-					while (sc.hasNextLine()) {
-						dest.println(sc.nextLine());
-					}
-				}
-			}
-		}).start();
-	}
+    }
+    
+    private void dumpStream(final InputStream src, final PrintStream dest) {
+        new Thread(new Runnable() {
+
+            public void run() {
+
+                try (final Scanner sc = new Scanner(src)) {
+                    while (sc.hasNextLine()) {
+                        dest.println(sc.nextLine());
+                    }
+                }
+            }
+        }).start();
+    }
 }

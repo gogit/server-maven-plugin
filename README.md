@@ -39,3 +39,4 @@ mvn verify
 </code>
 
 Checkout the xserver-test-artemis repository for a concrete example
+[xserver-test-artemis][https://github.com/gogit/xserver-test-artemis]
