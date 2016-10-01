@@ -7,7 +7,7 @@ A maven plugin that can be used to start and stop any server (like embedded arte
 <code>
     <plugin>
 	<groupId>uk.co.thinktag.plugin</groupId>
-	<artifactId>artemis-maven-plugin</artifactId>
+	<artifactId>xserver-maven-plugin</artifactId>
 	<configuration>
 		<port>9092</port>
 		<serverClass>uk.co.thinktag.embedded.EmbeddedServer</serverClass>
